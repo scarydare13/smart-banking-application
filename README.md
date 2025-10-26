@@ -127,18 +127,12 @@ Content-Type: application/json
 
 ```json
 {
-  "success": true,
-  "data": {
-    "message": "Account created successfully",
-    "account_id": 1,
-    "account_number": "CUR2025000001",
-    "account_type": "CURRENT",
-    "balance": "501.00",
-    "created_at": "2025-10-26 09:52:00.816240",
-    "created_at": "2025-10-26T10:30:01.234Z",
-    "daily_limit": 100000.00
-  },
-  "message": "Account created successfully"
+  "message": "Account created successfully",
+  "account_id": 2,
+  "account_number": "CUR2025000001",
+  "account_type": "CURRENT",
+  "balance": "5000.00",
+  "created_at": "2025-10-26 10:40:11.316256"
 }
 ```
 
