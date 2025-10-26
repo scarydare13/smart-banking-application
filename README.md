@@ -108,9 +108,6 @@ Content-Type: application/json
 {
   "account_type": "SAVINGS",
   "initial_deposit": 5000.00,
-  "currency": "INR",
-  "nominee_name": "Ramesh",
-  "nominee_relation": "Father"
 }
 ```
 
@@ -120,9 +117,7 @@ Content-Type: application/json
 |-------|------|----------|-------|
 | `account_type` | string | ✅ Yes | Enum: `SAVINGS`, `CURRENT`, `FIXED_DEPOSIT` |
 | `initial_deposit` | float | ✅ Yes | Min: ₹500 (Savings), ₹1000 (Current), ₹5000 (FD) |
-| `currency` | string | ✅ Yes | Default: `INR` |
-| `nominee_name` | string | ❌ No | Max 100 chars |
-| `nominee_relation` | string | ❌ No | Max 50 chars |
+
 
 ---
 
@@ -134,18 +129,12 @@ Content-Type: application/json
 {
   "success": true,
   "data": {
-    "account_id": 12345,
-    "account_number": "ACC1729936201",
-    "account_type": "SAVINGS",
-    "status": "ACTIVE",
-    "balance": 5000.00,
-    "currency": "INR",
-    "customer_id": 67890,
-    "customer_name": "Rajesh Kumar",
-    "nominee": {
-      "name": "John Doe",
-      "relation": "Father"
-    },
+    "message": "Account created successfully",
+    "account_id": 1,
+    "account_number": "CUR2025000001",
+    "account_type": "CURRENT",
+    "balance": "501.00",
+    "created_at": "2025-10-26 09:52:00.816240",
     "created_at": "2025-10-26T10:30:01.234Z",
     "daily_limit": 100000.00
   },
@@ -200,57 +189,6 @@ Content-Type: application/json
 }
 ```
 
-
----
-
-## ⚠️ Edge Cases Handled
-
-### 1. **Duplicate Account Creation Request**
-- **Issue:** User clicks "Create Account" multiple times rapidly
-- **Solution:** Implement idempotency using `request_id` in headers
-- **Response:** Return existing account if created within last 5 minutes
-
-### 2. **Concurrent Account Creation**
-- **Issue:** Same customer tries creating multiple accounts simultaneously
-- **Solution:** Database-level unique constraint + row-level locking
-- **Response:** Second request fails with `ACCOUNT_CREATION_IN_PROGRESS`
-
-### 3. **Initial Deposit Payment Failure**
-- **Issue:** Payment gateway fails after account creation
-- **Solution:** Two-phase commit pattern
-  1. Create account with status `PENDING_DEPOSIT`
-  2. After successful payment, update to `ACTIVE`
-- **Response:** Account created but marked pending
-
-### 5. **Expired JWT During Request**
-- **Issue:** Token expires mid-request
-- **Solution:** Token expiry check at middleware level
-- **Response:** 401 Unauthorized with refresh token hint
-
-### 6. **Invalid Account Type Enum**
-- **Issue:** Client sends `account_type: "LOAN"`
-- **Solution:** Pydantic validation rejects at request parsing
-- **Response:** 422 Unprocessable Entity with validation error
-
-### 7. **Negative Initial Deposit**
-- **Issue:** `initial_deposit: -1000`
-- **Solution:** Pydantic constraint `gt=0` (greater than 0)
-- **Response:** 422 Validation Error
-
-### 8. **Database Connection Lost**
-- **Issue:** PostgreSQL connection drops during transaction
-- **Solution:** SQLAlchemy connection pooling + retry logic
-- **Response:** 503 Service Unavailable
-
-### 9. **Customer Not Found in JWT**
-- **Issue:** JWT contains `customer_id` that doesn't exist in DB
-- **Solution:** Validate customer existence before processing
-- **Response:** 404 Customer Not Found
-
-### 10. **Special Characters in Nominee Name**
-- **Issue:** `nominee_name: "John<script>alert(1)</script>"`
-- **Solution:** Input sanitization + Pydantic string validators
-- **Response:** 422 Validation Error (invalid characters)
 
 ---
 
