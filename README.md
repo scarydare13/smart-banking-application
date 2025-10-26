@@ -149,32 +149,14 @@ Content-Type: application/json
 **1. KYC Not Completed (403 Forbidden)**
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "KYC_INCOMPLETE",
-    "message": "Complete KYC verification before creating account",
-    "details": {
-      "kyc_status": "PENDING",
-      "required_documents": ["Id Proof"]
-    }
-  }
+  "detail": "KYC not completed"
 }
 ```
 
 **2. Insufficient Initial Deposit (400 Bad Request)**
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "INSUFFICIENT_INITIAL_DEPOSIT",
-    "message": "Minimum deposit requirement not met",
-    "details": {
-      "account_type": "SAVINGS",
-      "minimum_required": 500.00,
-      "provided": 200.00,
-      "currency": "INR"
-    }
-  }
+  "detail": "Minimum deposit for CURRENT account is 500"
 }
 ```
 
@@ -215,24 +197,26 @@ Content-Type: application/json
 ## 📊 Database Schema
 
 ```sql
-CREATE TABLE accounts (
-    account_id BIGSERIAL PRIMARY KEY,
-    account_number VARCHAR(13) UNIQUE NOT NULL,
-    customer_id BIGINT NOT NULL REFERENCES customers(customer_id),
-    account_type VARCHAR(20) NOT NULL CHECK (account_type IN ('SAVINGS', 'CURRENT', 'FIXED_DEPOSIT')),
-    balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    currency VARCHAR(3) NOT NULL DEFAULT 'INR',
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'    daily_limit DECIMAL(15,2) NOT NULL DEFAULT 100000.00,
-    nominee_name VARCHAR(100),
-    nominee_relation VARCHAR(50),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+CREATE TABLE customer (
+    customer_id bigint NOT NULL DEFAULT nextval('customers_customer_id_seq'::regclass),
+    full_name character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    email character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    phone_number character varying(15) COLLATE pg_catalog."default",
+    address text COLLATE pg_catalog."default",
+    kyc_status character varying(20) COLLATE pg_catalog."default" NOT NULL DEFAULT 'PENDING'::character varying,
+    password_hash character varying(128) COLLATE pg_catalog."default" NOT NULL,
+    created_at timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
-    CONSTRAINT chk_balance_positive CHECK (balance >= 0),
-    INDEX idx_customer (customer_id),
-    INDEX idx_account_number (account_number),
-    INDEX idx_status (status)
 );
+
+CREATE TABLE customer (
+    account_id bigint NOT NULL DEFAULT nextval('accounts_account_id_seq'::regclass),
+    account_number character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    customer_id bigint NOT NULL,
+    account_type character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    balance numeric(15,2) NOT NULL DEFAULT 0.00,
+    created_at timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP )
 ```
 
 ---
