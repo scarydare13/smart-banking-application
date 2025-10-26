@@ -168,25 +168,6 @@ Content-Type: application/json
 
 ---
 
-## 🧪 Testing with Postman/Swagger
-
-**Swagger UI URL:** `http://localhost:8000/docs`
-
-**Test Sequence:**
-1. **Login:** POST `/api/auth/login` → Get JWT token
-2. **Create Account:** POST `/api/accounts` with JWT
-3. **Verify:** GET `/api/accounts/{account_number}`
-
-**Postman Collection Variables:**
-```json
-{
-  "base_url": "http://localhost:8000",
-  "jwt_token": "{{token}}",
-  "customer_id": "67890"
-}
-```
-
----
 
 ## 📊 Database Schema
 

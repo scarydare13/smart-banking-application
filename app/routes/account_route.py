@@ -28,13 +28,13 @@ def generate_account_number(db: Session, account_type: str):
     Format: <TYPE_CODE><YYYY><6-digit serial>
     Example: SAV2025000123
     """
-    # 1️⃣ Type prefix: first 3 letters of account type
+    #  Type prefix: first 3 letters of account type
     type_prefix = account_type[:3].upper()
 
-    # 2️⃣ Year
+    #  Year
     year = str(datetime.utcnow().year)
 
-    # 3️⃣ Serial number: get last account of this type
+    #  Serial number: get last account of this type
     last_account = (
         db.query(Account)
         .filter(Account.account_type == account_type)
@@ -48,72 +48,91 @@ def generate_account_number(db: Session, account_type: str):
     else:
         new_serial = "000001"
 
-    # 4️⃣ Combine
+    #  Combine
     return f"{type_prefix}{year}{new_serial}"
 
-
-@router.post("/create", response_model=AccountResponse)
+@router.post("/create", response_model=dict)
 def create_account(
     data: AccountCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    # 1️⃣ Fetch customer
-    customer = db.query(Customer).filter(Customer.customer_id == current_user["user_id"]).first()
-    if not customer:
-        logger.warning(f"Account creation failed - customer not found: {current_user['user_id']}")
-        raise HTTPException(status_code=404, detail="Customer not found")
+    try:
+        #  Fetch customer
+        customer = db.query(Customer).filter(Customer.customer_id == current_user["user_id"]).first()
+        if not customer:
+            logger.warning(f"Account creation failed - customer not found: {current_user['user_id']}")
+            return {"status": "failed", "data": {}, "msg": "Customer not found"}
 
-    if customer.kyc_status != "VERIFIED":
-        logger.warning(f"Account creation failed - KYC not verified for {current_user['user_id']}")
-        raise HTTPException(status_code=403, detail="KYC not completed")
+        if customer.kyc_status != "VERIFIED":
+            logger.warning(f"Account creation failed - KYC not verified for {current_user['user_id']}")
+            return {"status": "failed", "data": {}, "msg": "KYC not completed"}
 
-    # 2️⃣ Validate account type
-    acc_type = data.account_type.upper()
-    if acc_type not in MIN_DEPOSIT:
-        raise HTTPException(status_code=400, detail=f"Invalid account type. Choose from {list(MIN_DEPOSIT.keys())}")
+        #  Validate account type
+        acc_type = data.account_type.upper()
+        if acc_type not in MIN_DEPOSIT:
+            return {
+                "status": "failed",
+                "data": {},
+                "msg": f"Invalid account type. Choose from {list(MIN_DEPOSIT.keys())}"
+            }
 
-    # 3️⃣ Validate initial deposit
-    if data.initial_deposit < MIN_DEPOSIT[acc_type]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Minimum deposit for {acc_type} account is {MIN_DEPOSIT[acc_type]}"
+        #  Validate initial deposit
+        if data.initial_deposit < MIN_DEPOSIT[acc_type]:
+            return {
+                "status": "failed",
+                "data": {},
+                "msg": f"Minimum deposit for {acc_type} account is {MIN_DEPOSIT[acc_type]}"
+            }
+
+        #  Check duplicate account type
+        existing = db.query(Account).filter(
+            Account.customer_id == current_user["user_id"],
+            Account.account_type == acc_type
+        ).first()
+        if existing:
+            return {
+                "status": "failed",
+                "data": {},
+                "msg": f"{acc_type} account already exists for this customer"
+            }
+
+        #  Create account
+        acc_number = generate_account_number(db, acc_type)
+        new_acc = Account(
+            account_number=acc_number,
+            customer_id=current_user["user_id"],
+            account_type=acc_type,
+            balance=data.initial_deposit
+        )
+        db.add(new_acc)
+        db.commit()
+        db.refresh(new_acc)
+
+        #  Send email
+        send_account_email(
+            to_email=customer.email,
+            customer_name=customer.full_name,
+            account_number=new_acc.account_number,
+            account_type=new_acc.account_type,
+            balance=new_acc.balance
         )
 
-    # 4️⃣ Check duplicate account type
-    existing = db.query(Account).filter(
-        Account.customer_id == current_user["user_id"],
-        Account.account_type == acc_type
-    ).first()
-    if existing:
-        raise HTTPException(status_code=409, detail=f"{acc_type} account already exists for this customer")
+        logger.info(f"Account {new_acc.account_number} ({acc_type}) created for customer {customer.full_name}")
 
-    # 5️⃣ Create account
-    acc_number = generate_account_number(db,acc_type)
-    new_acc = Account(
-        account_number=acc_number,
-        customer_id=current_user["user_id"],
-        account_type=acc_type,
-        balance=data.initial_deposit
-    )
-    db.add(new_acc)
-    db.commit()
-    db.refresh(new_acc)
-    send_account_email(
-        to_email=customer.email,
-        customer_name=customer.full_name,
-        account_number=new_acc.account_number,
-        account_type=new_acc.account_type,
-        balance=new_acc.balance
-    )
-    logger.info(f"Account {new_acc.account_number} ({acc_type}) created for customer {customer.full_name}")
+        return {
+            "status": "success",
+            "data": {
+                "account_id": new_acc.account_id,
+                "account_number": new_acc.account_number,
+                "account_type": new_acc.account_type,
+                "balance": new_acc.balance,
+                "customer_name": customer.full_name,
+                "created_at": str(new_acc.created_at)
+            },
+            "msg": "Account created successfully"
+        }
 
-    return {
-        "message": "Account created successfully",
-        "account_id": new_acc.account_id,
-        "account_number": new_acc.account_number,
-        "account_type": new_acc.account_type,
-        "balance": new_acc.balance,
-        "customer_name": customer.full_name,
-        "created_at": str(new_acc.created_at)
-    }
+    except Exception as e:
+        logger.error(f"Error creating account for user {current_user['user_id']}: {e}", exc_info=True)
+        return {"status": "failed", "data": {}, "msg": "Internal server error"}
