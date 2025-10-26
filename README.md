@@ -217,6 +217,14 @@ CREATE TABLE customer (
 
 ## 🚀 Quick Start
 
+
+### Live Demo
+This application is deployed and running on Render. You can access it here:
+
+**[Smart Banking Application](https://smart-attendance-tracker-2r7y.onrender.com)**
+
+### Deployment
+The app is hosted on [Render.com](https://render.com) for reliable and scalable cloud hosting.
 ### Prerequisites
 - Python 3.11+
 - PostgreSQL 15+
